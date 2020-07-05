@@ -1,0 +1,37 @@
+= PostgreSQL
+
+== サンプル
+
+----
+$ make up
+$ make up-migrate
+$ make bulk-insert-sample-data-with-csv
+$ make select-10-publishers
+----
+
+== ヘルプ
+
+----
+$ make help
+######################################################################
+# Makeタスク一覧
+# $ make XXX
+# or
+# $ make XXX --dry-run
+######################################################################
+docker-network       コンテナが属するnetworkを作成
+pg-data              DBのdataを永続化させるためのディレクトリを作成
+up                   DBコンテナを立ち上げる
+bash                 DBコンテナに入る
+health-check         DBが起動しているか確認
+down                 DBコンテナを落とす
+clean                DBの永続データを削除
+create-publishers-table-migration-file マイグレーションファイルの作成
+up-migrate           migrate up
+down-migrate         migrate down
+truncate-publishers  publishers TABLEをtruncate
+select-10-publishers publishersテーブルの10レコードを見る
+bulk-insert-sample-data-with-csv CSVからバルクインサート
+setup-gitignore      .gitignoreをsetup
+help                 Make タスク一覧
+----
