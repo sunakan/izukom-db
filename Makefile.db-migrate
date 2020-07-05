@@ -1,0 +1,68 @@
+include Makefile.variables
+
+################################################################################
+# マクロ
+################################################################################
+# migrateコンテナを起動するdocker
+define docker-run-migrate
+  docker run \
+    --rm \
+    --interactive \
+    --tty \
+    --user `id -u`:`id -g` \
+    --network $(DOCKER_NETWORK_NAME) \
+    --mount type=bind,source=$(PWD)/migrations/,target=/migrations/ \
+    migrate/migrate:$(DOCKER_MIGRATE_TAG)
+endef
+
+# migrateコンテナを起動するdocker
+# $(1): migrationファイル名
+define create-migration-file
+  ( ls ./migrations/*_$(1).*.sql ) \
+  || $(docker-run-migrate) create -ext sql -dir /migrations/ -seq $(1)
+endef
+
+define postgres-url
+  postgres://$(DOCKER_PG_USER):$(DOCKER_PG_PASSWORD)@$(DOCKER_PG_HOST):5432/$(DOCKER_PG_DATABASE)?sslmode=disable
+endef
+
+define docker-run-psql
+  docker run \
+    --rm \
+    --interactive \
+    --tty \
+    --user `id -u`:`id -g` \
+    --entrypoint '' \
+    --mount type=bind,source=$(PWD)/sample-data/,target=/sample-data/,readonly \
+    --network $(DOCKER_NETWORK_NAME) \
+    --env PGPASSWORD=$(DOCKER_PG_PASSWORD) \
+    postgres:$(DOCKER_PG_TAG) \
+      psql --host $(DOCKER_PG_HOST) --username $(DOCKER_PG_USER) --dbname $(DOCKER_PG_DATABASE)
+endef
+
+################################################################################
+# タスク
+################################################################################
+.PHONY: create-publishers-table-migration-file
+create-publishers-table-migration-file: ## マイグレーションファイルの作成
+	$(call create-migration-file,create_publishers_table)
+
+.PHONY: up-migrate
+up-migrate: ## migrate up
+	$(docker-run-migrate) -database $(postgres-url) -path ./migrations/ up
+
+.PHONY: down-migrate
+down-migrate: ## migrate down
+	$(docker-run-migrate) -database $(postgres-url) -path ./migrations/ down
+
+.PHONY: truncate-publishers
+truncate-publishers: ## publishers TABLEをtruncate
+	$(docker-run-psql) --command 'TRUNCATE TABLE publishers;'
+
+.PHONY: select-10-publishers
+select-10-publishers: ## publishersテーブルの10レコードを見る
+	$(docker-run-psql) --command 'SELECT * FROM publishers LIMIT 10;'
+
+.PHONY: bulk-insert-sample-data-with-csv
+bulk-insert-sample-data-with-csv: ## CSVからバルクインサート
+	$(docker-run-psql) --command '\copy publishers(name) from /sample-data/publishers.sample.csv with csv;'
